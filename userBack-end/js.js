@@ -12,6 +12,11 @@ let userName = document.getElementById('userName'),
     },
     userRole;
 
+function getFullName(user) {
+    const {firstName, lastName} = user;
+    return `${firstName} ${lastName}`;
+}
+
 function newUserObj(name, secondName, email, age) {
     let userObj = {};
     userIdCount++;
@@ -60,6 +65,7 @@ function creteNewUser(element, userObj) {
 
     element.appendChild(newUser);
 }
+
 let user,
     userArr = [];
 
@@ -72,27 +78,27 @@ btnShowModal.addEventListener('click', function () {
     let optionNamesArr = ['Admin', 'User', 'Guest'];
     addRadioInput(optionNamesArr, modalWindow);
 
-},{once: true});
+}, {once: true});
 
 
 btnCreate.addEventListener('click', function () {
     let section = document.getElementById('select');
-    if(isValidAge(userAge.value) && isValidEmail(userEmail.value) && isValidUserName(userLastName.value) && isValidUserName(userName.value)){
-        if(isEdit.ready){
+    if (isValidAge(userAge.value) && isValidEmail(userEmail.value) && isValidUserName(userLastName.value) && isValidUserName(userName.value)) {
+        if (isEdit.ready) {
             let index = isEdit.indexOfUserToChange;
             userArr[index] = newUserObj(userName.value, userLastName.value, userEmail.value, userAge.value);
             userIdCount--;
             userArr[index].id = isEdit.currentId;
-            request('POST', JSON.stringify(userArr[index]));
+            sendRequest('POST', JSON.stringify(userArr[index]));
             let span = document.getElementsByClassName('personInfo' + isEdit.currentId)[0];
             span.textContent = userName.value;
             isEdit.ready = false;
             modalWindow.classList.remove('modalWindowShow');
             modalWindow.classList.add('modalWindowHide');
-        }else{
+        } else {
 
             user = newUserObj(userName.value, userLastName.value, userEmail.value, userAge.value);
-            if(section){
+            if (section) {
                 user.role = section.value;
                 modalWindow.removeChild(section);
                 userRole = section.value;
@@ -101,7 +107,7 @@ btnCreate.addEventListener('click', function () {
             creteNewUser(document.getElementById('users'), user);
             userArr.push(user);
             let data = JSON.stringify(user);
-            request('POST', data);
+            sendRequest('POST', data);
             modalWindow.classList.remove('modalWindowShow');
             modalWindow.classList.add('modalWindowHide');
 
@@ -109,75 +115,75 @@ btnCreate.addEventListener('click', function () {
     }
 });
 
-usersDiv.addEventListener('click',function (event) {
-    if(event.target.classList.contains('info')){
+usersDiv.addEventListener('click', function (event) {
+    if (event.target.classList.contains('info')) {
         let id = {id: event.target.parentNode.id};
-        request('POST', JSON.stringify(id));
-    }else if(event.target.classList.contains('edit')){
-        if(userRole !== 'Guest'){
-            if((userArr[0].userRole === 'User' && userArr[event.target.parentNode.id - 1].id === userArr[0].id) || userRole === 'Admin'){
+        sendRequest('POST', JSON.stringify(id));
+    } else if (event.target.classList.contains('edit')) {
+        if (userRole !== 'Guest') {
+            if ((userArr[0].userRole === 'User' && userArr[event.target.parentNode.id - 1].id === userArr[0].id) || userRole === 'Admin') {
                 modalWindow.classList.remove('modalWindowHide');
                 modalWindow.classList.add('modalWindowShow');
                 isEdit.ready = true;
                 isEdit.currentId = userArr[event.target.parentNode.id - 1].id;
                 isEdit.indexOfUserToChange = (event.target.parentNode.id - 1);
                 btnCreate.textContent = 'Change';
-            }else request('POST', JSON.stringify(userArr[event.target.parentNode.id - 1]));
+            } else sendRequest('POST', JSON.stringify(userArr[event.target.parentNode.id - 1]));
 
-        }else if(userRole === 'Guest'){
-            request('POST', JSON.stringify(userArr[event.target.parentNode.id - 1]));
+        } else if (userRole === 'Guest') {
+            sendRequest('POST', JSON.stringify(userArr[event.target.parentNode.id - 1]));
         }
-        }else if(event.target.classList.contains('delete')){
-        if(userRole !== 'Guest'){
+    } else if (event.target.classList.contains('delete')) {
+        if (userRole !== 'Guest') {
             let id = {id: event.target.parentNode.id};
-            request('DELETE', JSON.stringify(id));
+            sendRequest('DELETE', JSON.stringify(id));
             usersDiv.removeChild(event.target.parentNode);
-        }else request('DELETE', JSON.stringify({id: event.target.parentNode.id}));
+        } else sendRequest('DELETE', JSON.stringify({id: event.target.parentNode.id}));
 
     }
 
 });
 
-function request(method, data) {
-    let xhr = new XMLHttpRequest();
-    xhr.open(method, 'http://localhost:3000/', true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.send(data);
-    xhr.onload = function () {
-        if(JSON.parse(xhr.response).message){
-            alert(JSON.parse(xhr.response).message);
-        }else if(JSON.parse(xhr.response).userName) {
-            alert(
-                'Name: ' + JSON.parse(xhr.response).userName + '\n'+
-                'Second Name: ' + JSON.parse(xhr.response).userLastName + '\n'+
-                'Age: ' + JSON.parse(xhr.response).userAge + '\n'+
-                'Email: ' + JSON.parse(xhr.response).userEmail);
-        }else console.log(JSON.parse(xhr.response));
-    };
+function sendRequest(method, data) {
+    return new Promise(function(resolve, reject){
+        let xhr = new XMLHttpRequest();
+        xhr.open(method, 'http://localhost:3000/', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(data);
+        xhr.onload = function () {
+            if (JSON.parse(xhr.response).message) {
+                alert(JSON.parse(xhr.response).message);
+            } else if (JSON.parse(xhr.response).userName) {
+                alert(
+                    'Name: ' + JSON.parse(xhr.response).userName + '\n' +
+                    'Second Name: ' + JSON.parse(xhr.response).userLastName + '\n' +
+                    'Age: ' + JSON.parse(xhr.response).userAge + '\n' +
+                    'Email: ' + JSON.parse(xhr.response).userEmail);
+            } else console.log(JSON.parse(xhr.response));
+        };
+    });
+
 }
-
-
-
 
 
 function isValidUserName(name) {
-    if(name.length === 0){
+    if (name.length === 0) {
         console.log('Неверное имя или фамилия');
         return false
-    }else return name[0].match(/[A-Z]/g);
+    } else return name[0].match(/[A-Z]/g);
 }
 
 function isValidAge(age) {
-    if(!(Number(age) > 0 && Number(age) < 125) && age.length > 0){
+    if (!(Number(age) > 0 && Number(age) < 125) && age.length > 0) {
         console.log('Неверный возраст');
-    }else return true
+    } else return true
 }
 
 function isValidEmail(userEmail) {
     let email = userEmail.slice(-8);
 
     email = !(email !== '@mail.ru' || userEmail[0] === '@' || userEmail.length === 0);
-    if(!email){
+    if (!email) {
         console.log('Неверный email')
     }
 
@@ -188,22 +194,13 @@ function addRadioInput(optionNamesArr, element) {
     let name = document.createElement('select');
     name.id = 'select';
     name.className = 'select';
-    for(let i = 0; i < optionNamesArr.length; i++){
+    for (let i = 0; i < optionNamesArr.length; i++) {
         let option = document.createElement('option');
         option.textContent = optionNamesArr[i];
         name.appendChild(option);
     }
     element.appendChild(name);
 }
-
-
-
-
-
-
-
-
-
 
 
 /*        let currentId = userArr[event.target.parentNode.id - 1].id;
