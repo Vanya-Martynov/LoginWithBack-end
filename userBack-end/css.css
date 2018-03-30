@@ -235,3 +235,12 @@ select::-ms-expand {
     -o-transition: .25s all ease;
     transition: .25s all ease;
 }
+.displayNone{
+    display: none;
+}
+.displayBlock{
+    display: block;
+}
+#logOut{
+    position: absolute;
+}

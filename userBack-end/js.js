@@ -1,7 +1,8 @@
 let btnCreate = document.getElementById('send'),
     usersDiv = document.getElementById('users'),
     btnShowModal = document.getElementById('newUser'),
-    modalWindow = document.getElementById('modalWindow');
+    modalWindow = document.getElementById('modalWindow'),
+    buttonLogOut = document.getElementById('logOut');
 let userName = document.getElementById('userName'),
     userLastName = document.getElementById('userLastName'),
     userEmail = document.getElementById('userEmail'),
@@ -11,11 +12,12 @@ let userName = document.getElementById('userName'),
         ready: false,
     },
     userRole;
-
-function getFullName(user) {
-    const {firstName, lastName} = user;
-    return `${firstName} ${lastName}`;
-}
+let user,
+    userArr = [];
+let requestErrorHandler = {
+    'NOT_ENOUGH_RIGHTS': 'You don\'t have enough rights, please use donate for access',
+    'TOKEN_EXPIRED': 'Your account has expired, please login again',
+};
 
 function newUserObj(name, secondName, email, age) {
     let userObj = {};
@@ -66,48 +68,62 @@ function creteNewUser(element, userObj) {
     element.appendChild(newUser);
 }
 
-let user,
-    userArr = [];
+buttonLogOut.addEventListener('click', function () {
+    logOutUser();
+});
+
 
 btnShowModal.addEventListener('click', function () {
     modalWindow.classList.remove('modalWindowHide');
     modalWindow.classList.add('modalWindowShow');
     btnCreate.textContent = 'Create';
 });
-btnShowModal.addEventListener('click', function () {
+/*btnShowModal.addEventListener('click', function () {
     let optionNamesArr = ['Admin', 'User', 'Guest'];
     addRadioInput(optionNamesArr, modalWindow);
 
-}, {once: true});
+}, {once: true});*/
 
 
 btnCreate.addEventListener('click', function () {
-    let section = document.getElementById('select');
-    if (isValidAge(userAge.value) && isValidEmail(userEmail.value) && isValidUserName(userLastName.value) && isValidUserName(userName.value)) {
+    if (
+        isValidAge(userAge.value)
+        && isValidEmail(userEmail.value)
+        && isValidUserName(userLastName.value)
+        && isValidUserName(userName.value)
+    ) {
         if (isEdit.ready) {
             let index = isEdit.indexOfUserToChange;
             userArr[index] = newUserObj(userName.value, userLastName.value, userEmail.value, userAge.value);
             userIdCount--;
             userArr[index].id = isEdit.currentId;
-            sendRequest('POST', JSON.stringify(userArr[index]));
+            sendRequest('POST', JSON.stringify(userArr[index]))
+                .then(function (json) {
+                    requestHandler(json);
+                });
             let span = document.getElementsByClassName('personInfo' + isEdit.currentId)[0];
             span.textContent = userName.value;
             isEdit.ready = false;
             modalWindow.classList.remove('modalWindowShow');
             modalWindow.classList.add('modalWindowHide');
         } else {
-
             user = newUserObj(userName.value, userLastName.value, userEmail.value, userAge.value);
+            let section = document.getElementById('select');
             if (section) {
                 user.role = section.value;
                 modalWindow.removeChild(section);
                 userRole = section.value;
+                user.token = Date.now();
+                console.log(user.token, typeof user.token);
             }
 
-            creteNewUser(document.getElementById('users'), user);
+            creteNewUser(usersDiv, user);
             userArr.push(user);
             let data = JSON.stringify(user);
-            sendRequest('POST', data);
+            sendRequest('POST', data)
+                .then(function (json) {
+                    requestHandler(json);
+                });
             modalWindow.classList.remove('modalWindowShow');
             modalWindow.classList.add('modalWindowHide');
 
@@ -118,25 +134,31 @@ btnCreate.addEventListener('click', function () {
 usersDiv.addEventListener('click', function (event) {
     if (event.target.classList.contains('info')) {
         let id = {id: event.target.parentNode.id};
-        sendRequest('POST', JSON.stringify(id));
+        sendRequest('POST', JSON.stringify(id))
+            .then(function (json) {
+                requestHandler(json);
+            });
     } else if (event.target.classList.contains('edit')) {
         if (userRole !== 'Guest') {
-            if ((userArr[0].userRole === 'User' && userArr[event.target.parentNode.id - 1].id === userArr[0].id) || userRole === 'Admin') {
-                modalWindow.classList.remove('modalWindowHide');
-                modalWindow.classList.add('modalWindowShow');
-                isEdit.ready = true;
-                isEdit.currentId = userArr[event.target.parentNode.id - 1].id;
-                isEdit.indexOfUserToChange = (event.target.parentNode.id - 1);
-                btnCreate.textContent = 'Change';
-            } else sendRequest('POST', JSON.stringify(userArr[event.target.parentNode.id - 1]));
-
+            modalWindow.classList.remove('modalWindowHide');
+            modalWindow.classList.add('modalWindowShow');
+            isEdit.ready = true;
+            isEdit.currentId = userArr[event.target.parentNode.id - 1].id;
+            isEdit.indexOfUserToChange = (event.target.parentNode.id - 1);
+            btnCreate.textContent = 'Change';
         } else if (userRole === 'Guest') {
-            sendRequest('POST', JSON.stringify(userArr[event.target.parentNode.id - 1]));
+            sendRequest('POST', JSON.stringify(userArr[event.target.parentNode.id - 1]))
+                .then(function (json) {
+                    requestHandler(json);
+                });
         }
     } else if (event.target.classList.contains('delete')) {
         if (userRole !== 'Guest') {
             let id = {id: event.target.parentNode.id};
-            sendRequest('DELETE', JSON.stringify(id));
+            sendRequest('DELETE', JSON.stringify(id))
+                .then(function (json) {
+                    requestHandler(json);
+                });
             usersDiv.removeChild(event.target.parentNode);
         } else sendRequest('DELETE', JSON.stringify({id: event.target.parentNode.id}));
 
@@ -145,24 +167,39 @@ usersDiv.addEventListener('click', function (event) {
 });
 
 function sendRequest(method, data) {
-    return new Promise(function(resolve, reject){
+    return new Promise(function (resolve, reject) {
         let xhr = new XMLHttpRequest();
         xhr.open(method, 'http://localhost:3000/', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.send(data);
         xhr.onload = function () {
-            if (JSON.parse(xhr.response).message) {
-                alert(JSON.parse(xhr.response).message);
-            } else if (JSON.parse(xhr.response).userName) {
-                alert(
-                    'Name: ' + JSON.parse(xhr.response).userName + '\n' +
-                    'Second Name: ' + JSON.parse(xhr.response).userLastName + '\n' +
-                    'Age: ' + JSON.parse(xhr.response).userAge + '\n' +
-                    'Email: ' + JSON.parse(xhr.response).userEmail);
-            } else console.log(JSON.parse(xhr.response));
-        };
-    });
+            let json = JSON.parse(xhr.response);
+            if(json.ERROR_BACK){
+                for(let key in requestErrorHandler){
+                    if(key === json.ERROR_BACK){
+                        alert(requestErrorHandler[key]);
+                        if(key === 'TOKEN_EXPIRED'){
+                            logOutUser();
+                        }
+                    }
+                }
+            }else if (json) resolve(json);
 
+        };
+        //xhr.onerror = reject(JSON.parse(xhr.response));
+    });
+}
+
+function requestHandler(jsonRequest) {
+    if (jsonRequest.message) {
+        alert(jsonRequest.message);
+    } else if (jsonRequest.userName) {
+        alert(
+            'Name: ' + jsonRequest.userName + '\n' +
+            'Second Name: ' + jsonRequest.userLastName + '\n' +
+            'Age: ' + jsonRequest.userAge + '\n' +
+            'Email: ' + jsonRequest.userEmail);
+    } else console.log(jsonRequest);
 }
 
 
@@ -174,14 +211,17 @@ function isValidUserName(name) {
 }
 
 function isValidAge(age) {
-    if (!(Number(age) > 0 && Number(age) < 125) && age.length > 0) {
+    if (
+        !(Number(age) > 0 && Number(age) < 125)
+        && age.length > 0
+    ) {
         console.log('Неверный возраст');
     } else return true
+
 }
 
 function isValidEmail(userEmail) {
     let email = userEmail.slice(-8);
-
     email = !(email !== '@mail.ru' || userEmail[0] === '@' || userEmail.length === 0);
     if (!email) {
         console.log('Неверный email')
@@ -202,9 +242,46 @@ function addRadioInput(optionNamesArr, element) {
     element.appendChild(name);
 }
 
+function hash(str) {
+    let hash = 0;
+    if (str.length === 0)
+        return hash;
+    for (let i = 0; i < str.length; i++) {
+        let char = str.charCodeAt(i);
+        hash = ((hash<<5)-hash) + char;
 
-/*        let currentId = userArr[event.target.parentNode.id - 1].id;
-        userArr[event.target.parentNode.id - 1] = newUserObj(userName.value, userLastName.value, userEmail.value, userAge.value);
-        userArr[event.target.parentNode.id - 1].id = currentId;
+        // Convert to 32bit integer
+        hash = hash & hash;
+    }
+    return hash;
+}
 
-        request('POST', JSON.stringify(userArr[event.target.parentNode.id - 1]));*/
+function showElement(element) {
+    element.classList.remove('displayNone');
+    element.classList.add('displayBlock');
+}
+
+function hidedElement(element) {
+    element.classList.remove('displayBlock');
+    element.classList.add('displayNone');
+}
+
+function logOutUser() {
+    console.log('LogOut');
+    hidedElement(btnShowModal);
+    let optionRoleArray = ['Admin', 'User', 'Guest'];
+    addRadioInput(optionRoleArray, modalWindow);
+    showElement(btnCreate);
+    showElement(modalWindow);
+    hidedElement(usersDiv);
+    hidedElement(buttonLogOut);
+    buttonLogOut.textContent = 'LogOut';
+    btnCreate.textContent = 'LogIn';
+    btnCreate.addEventListener('click', function () {
+        showElement(btnShowModal);
+        modalWindow.classList.remove('displayBlock');
+        showElement(buttonLogOut);
+        showElement(usersDiv);
+        btnCreate.textContent = 'Create';
+    }, {once: true})
+}
